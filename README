@@ -1,0 +1,3 @@
+ifdef-rewriter: given some information about macro definitions that are always enabled or always disabled this tool re-writes any expressions containing these macro definitions. Dead branches are removed, branches that are always taken will be de-ifdeffed. It also updates ifdef comments
+
+ifdef-stats: produces a sorted list of macro definitions along with how many lines of code are in some way controlled by that definition.
