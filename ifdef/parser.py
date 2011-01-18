@@ -185,10 +185,11 @@ def evalexpr(r):
     return r
 
 def gettokens(e):
-    if isinstance(e, OrExpr) or isinstance(e, AndExpr) or isinstance(e, GtEqExpr):
-        return gettokens(e.args[0]) + gettokens(e.args[1])
-    elif isinstance(e, NotExpr):
-        return gettokens(e.args[0])
+    if any(isinstance(e,t) for t in [ExprNode, ArithExpr]):
+        tokens = []
+        for arg in e.args:
+            tokens += gettokens(arg)
+        return tokens
     elif isinstance(e, DefinedExpr):
         return [e.args[0]]
     return [e]

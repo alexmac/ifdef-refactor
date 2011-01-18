@@ -71,6 +71,17 @@ def dumpstats(sizemap, outfile):
         out.write("%d %s\n" % s)
     out.close()
 
+def accumulatestats(sizemap, infile):
+    for line in open(infile, 'r').readlines():
+        if line.startswith("#"):
+            continue
+        size = int(line.split()[0])
+        token = line.split()[1]
+        if token not in sizemap:
+            sizemap[token] = size
+        else:
+            sizemap[token] += size
+
 # ------------------------------------------------------------------------------
 # Main Entrypoint
 # ------------------------------------------------------------------------------
@@ -78,6 +89,7 @@ if __name__ == "__main__":
     optParser = optparse.OptionParser(usage='usage: %prog [ files ]\n\nIf no files are given then a recursive search for files ending\nwith c/cpp/mm/h is performed in the current directory.')
     optParser.set_defaults()
     optParser.add_option( '-m', '--merge-stats', dest="mergestats", default=False, action="store_true")
+    optParser.add_option( '-t', '--generate-ifdef-tester', dest="generatetester", default=False, action="store_true")
     (opts, args) = optParser.parse_args()
     
     sizemap = {}
@@ -87,18 +99,25 @@ if __name__ == "__main__":
             for file in files:
                 fullpath = "%s/%s" % (path, file)
                 if file == "ifdefstats.txt":
-                    print "merging stats from %s" % fullpath
-                    for line in open(fullpath, 'r').readlines():
-                        size = int(line.split()[0])
-                        token = line.split()[1]
-                        if token not in sizemap:
-                            sizemap[token] = size
-                        else:
-                            sizemap[token] += size
+                    print "# merging stats from %s" % fullpath
+                    accumulatestats(sizemap, fullpath)
         ss = sorted([(v,k) for (k,v) in sizemap.items()])
         for s in ss:
             print "%d %s" % s
         exit(0)
+    
+    if opts.generatetester:
+        if len(args) != 1:
+            print "point at the stats file you want to use"
+            exit(0)
+        accumulatestats(sizemap, args[0])
+        ss = sorted(sizemap.items())
+        for (k,v) in ss:
+            print "#if defined(%s)" % k
+            print "  #warning __FILE__ : %s is ENABLED" % k
+            print "#else"
+            print "  #warning __FILE__ : %s is DISABLED" % k
+            print "#endif\n"
 
     if len(args) == 0:
         for (path, dirs, files) in os.walk("."):
