@@ -40,6 +40,7 @@ def computestats(x, sizemap):
         if x.cond is not None:
             tokens = gettokens(expr.parse((x.cond.expr))[0])
             for t in tokens:
+                t = str(t)
                 if t not in sizemap:
                     sizemap[t] = 0
                 if x.size is None:
@@ -50,30 +51,64 @@ def computestats(x, sizemap):
 
 def stats(file, sizemap):
     print "Gathering stats for %s" % file
-    root = parsefile(file)
-    calculatesizes(root)
-    computestats(root, sizemap)
+    try:
+        root = parsefile(file)
+        calculatesizes(root)
+        computestats(root, sizemap)
+    except KeyboardInterrupt:
+        exit(0)
+    except:
+        print "-- Error with file %s:" % file
+        print sys.exc_info()[1]
+
+def dumpstats(sizemap, outfile):
+    if len(sizemap) == 0:
+        return
+    print "Dumping stats to %s" % outfile
+    out = open(outfile, 'w')
+    ss = sorted([(v,k) for (k,v) in sizemap.items()])
+    for s in ss:
+        out.write("%d %s\n" % s)
+    out.close()
 
 # ------------------------------------------------------------------------------
 # Main Entrypoint
 # ------------------------------------------------------------------------------
 if __name__ == "__main__":
     optParser = optparse.OptionParser(usage='usage: %prog [ files ]\n\nIf no files are given then a recursive search for files ending\nwith c/cpp/mm/h is performed in the current directory.')
-    optParser.set_defaults()    
+    optParser.set_defaults()
+    optParser.add_option( '-m', '--merge-stats', dest="mergestats", default=False, action="store_true")
     (opts, args) = optParser.parse_args()
-
+    
     sizemap = {}
     
+    if opts.mergestats:
+        for (path, dirs, files) in os.walk("."):
+            for file in files:
+                fullpath = "%s/%s" % (path, file)
+                if file == "ifdefstats.txt":
+                    print "merging stats from %s" % fullpath
+                    for line in open(fullpath, 'r').readlines():
+                        size = int(line.split()[0])
+                        token = line.split()[1]
+                        if token not in sizemap:
+                            sizemap[token] = size
+                        else:
+                            sizemap[token] += size
+        ss = sorted([(v,k) for (k,v) in sizemap.items()])
+        for s in ss:
+            print "%d %s" % s
+        exit(0)
+
     if len(args) == 0:
         for (path, dirs, files) in os.walk("."):
             for file in files:
                 if any(file.endswith(x) for x in [".c", ".cpp", ".h", ".mm"]):
                     fullpath = "%s/%s" % (path, file)
                     stats(fullpath, sizemap)
+            dumpstats(sizemap, path + "/ifdefstats.txt")
+            sizemap = {}
     else:
         for fullpath in args:
             stats(fullpath, sizemap)
 
-    ss = sorted([(v,k) for (k,v) in sizemap.items()])
-    for s in ss:
-        print "%d %s" % s
