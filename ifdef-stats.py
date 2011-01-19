@@ -101,7 +101,7 @@ if __name__ == "__main__":
                 if file == "ifdefstats.txt":
                     print "# merging stats from %s" % fullpath
                     accumulatestats(sizemap, fullpath)
-        ss = sorted([(v,k) for (k,v) in sizemap.items()])
+        ss = sorted([(v,k) for (k,v) in sizemap.items()], reverse=True)
         for s in ss:
             print "%d %s" % s
         exit(0)
@@ -113,11 +113,19 @@ if __name__ == "__main__":
         accumulatestats(sizemap, args[0])
         ss = sorted(sizemap.items())
         for (k,v) in ss:
+            try:
+		int(k)
+		continue
+            except ValueError,TypeError:
+		pass
+            if k.find("\\") >= 0:
+		continue
             print "#if defined(%s)" % k
-            print "  #warning __FILE__ : %s is ENABLED" % k
+            print "  #warning %s is ENABLED" % (k)
             print "#else"
-            print "  #warning __FILE__ : %s is DISABLED" % k
+            print "  #warning %s is DISABLED" % k
             print "#endif\n"
+        exit(0)
 
     if len(args) == 0:
         for (path, dirs, files) in os.walk("."):
@@ -130,4 +138,6 @@ if __name__ == "__main__":
     else:
         for fullpath in args:
             stats(fullpath, sizemap)
-
+        ss = sorted([(v,k) for (k,v) in sizemap.items()])
+        for s in ss:
+            print "%d %s" % s

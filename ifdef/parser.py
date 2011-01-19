@@ -289,7 +289,7 @@ def parseline(line):
     if commentpos >= 0:
         comment = " // " + contents[commentpos+2:].strip()
         contents = contents[0:commentpos].strip()
-    
+
     removed = True
     while removed:
         commentpos = contents.find("/*")
@@ -297,11 +297,16 @@ def parseline(line):
             endpos = contents.find("*/")
             if endpos == len(contents)-2 and comment == "":
                 comment = " // " + contents[commentpos+2:endpos].strip()
-            contents = (contents[0:commentpos] + contents[endpos+2:]).strip()
+            elif endpos == -1:
+                # multiline comment... ignore for now
+                contents = (contents[0:commentpos]).strip()
+            else:
+                contents = (contents[0:commentpos] + contents[endpos+2:]).strip()
+
             removed = True
         else:
             removed = False
-    
+
     return Directive(hash, token, contents, comment)
 
 def parsefile(file):
@@ -316,6 +321,8 @@ def parsefile(file):
     pos = 0
     for line in src:
         pos += 1
+
+        #print "Parsing line %d in file %s" % (pos, file)
 
         dir = parseline(line)
         if dir is None:
