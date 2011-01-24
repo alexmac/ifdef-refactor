@@ -53,32 +53,47 @@ class LtExpr(ArithExpr): pass
 class DefinedValue(ASTNode): pass
 class DefinedExpr(ASTNode): pass
 
-with DroppedSpace():
-    expr = Delayed()
-    basicexpr = Delayed()
-    bracketedexpr = Drop('(') & expr & Drop(')')
-    number = Digit()[1:,...] >> int
-    strlit  = SingleLineString(quote="'")
-    ident  = Word(Letter() | '_', Letter() | '_' | Digit())
-    definedexpr = ((Drop("defined") & ident) | (Drop("defined") & Drop("(") & ident & Drop(")"))) > DefinedExpr
-    notexpr = Drop("!") & basicexpr > NotExpr
-    basicexpr += definedexpr | ident | strlit | number | notexpr | bracketedexpr
-    addexpr = basicexpr & Drop("+") & expr > AddExpr
-    noteqexpr = basicexpr & Drop("!=") & expr > NotEqExpr
-    eqexpr = basicexpr & Drop("==") & expr > EqExpr
-    gteqexpr = basicexpr & Drop(">=") & expr > GtEqExpr
-    lteqexpr = basicexpr & Drop("<=") & expr > LtEqExpr
-    gtexpr = basicexpr & Drop(">") & expr > GtExpr
-    ltexpr = basicexpr & Drop("<") & expr > LtExpr
-    andexpr = basicexpr & Drop("&&") & expr > AndExpr
-    orexpr = basicexpr & Drop("||") & expr > OrExpr
-    expr += andexpr | orexpr | gteqexpr | lteqexpr | ltexpr | gtexpr | eqexpr | noteqexpr | addexpr | basicexpr
+expr = Delayed()
+basicexpr = Delayed()
+bracketedexpr = Drop(Token("\(")) & expr & Drop(Token("\)"))
+number = Token("[0-9]+") >> int
+hexnumber = Token("0x[a-zA-Z0-9]+") >> str
+strlit = Token("'.*'") >> str
+ident = Token("[a-zA-Z_]+[a-zA-Z0-9_]*")
+definedexpr = Drop(Token("defined")) & (ident | (Drop(Token("\(")) & ident & Drop(Token("\)")))) > DefinedExpr
+notexpr = Drop(Token("!")) & basicexpr > NotExpr
+basicexpr += definedexpr | ident | strlit | hexnumber | number | notexpr | bracketedexpr
+group1 = Delayed()
+group2 = Delayed()
+group3 = Delayed()
+
+addexpr = basicexpr & Drop(Token("\+")) & group1 > AddExpr
+noteqexpr = basicexpr & Drop(Token("!=")) & group1 > NotEqExpr
+eqexpr = basicexpr & Drop(Token("==")) & group1 > EqExpr
+gteqexpr = basicexpr & Drop(Token(">=")) & group1 > GtEqExpr
+lteqexpr = basicexpr & Drop(Token("<=")) & group1 > LtEqExpr
+gtexpr = basicexpr & Drop(Token(">")) & group1 > GtExpr
+ltexpr = basicexpr & Drop(Token("<")) & group1 > LtExpr
+group1 += addexpr | noteqexpr | eqexpr | gteqexpr | lteqexpr | gtexpr | ltexpr | basicexpr
+
+andexpr = group1 & Drop(Token("&&")) & group2 > AndExpr
+group2 += andexpr | group1
+
+orexpr = group2 & Drop(Token("\|\|")) & group3 > OrExpr
+group3 += orexpr | group2
+
+expr += group3
+expr.config.no_direct_eval()
+expr.config.left_memoize()
+
+#print "tokens: %s" % find_tokens(expr)
+parser = expr.get_parse()
 
 def printexpr(r, addBrackets=False):
     if isinstance(r, OrExpr):
-        r = printexpr(r.args[0], not isinstance(r.args[0], OrExpr)) + " || " + printexpr(r.args[1], not isinstance(r.args[1], OrExpr))
+        r = printexpr(r.args[0], isinstance(r.args[0], AndExpr)) + " || " + printexpr(r.args[1], isinstance(r.args[1], AndExpr))
     elif isinstance(r, AndExpr):
-        r = printexpr(r.args[0], not isinstance(r.args[0], AndExpr)) + " && " + printexpr(r.args[1], not isinstance(r.args[1], AndExpr))
+        r = printexpr(r.args[0], isinstance(r.args[0], OrExpr)) + " && " + printexpr(r.args[1], isinstance(r.args[1], OrExpr))
     elif isinstance(r, GtEqExpr):
         r = printexpr(r.args[0]) + " >= " + printexpr(r.args[1])
     elif isinstance(r, LtEqExpr):
@@ -104,7 +119,7 @@ def printexpr(r, addBrackets=False):
 
 def printifdefexpr(ifdef):
     if isinstance(ifdef.expr, basestring) and ifdef.expr != "":
-        ifdef.expr = expr.parse(ifdef.expr)[0]
+        ifdef.expr = parser(ifdef.expr)[0]
     e = ifdef.expr
     if ifdef.token in ["if", "ifdef", "ifndef"]:
         if isinstance(ifdef.expr, DefinedExpr):

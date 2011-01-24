@@ -219,6 +219,7 @@ def Character(intervals, alphabet):
     '''
     Allow simple construction of Character instances.
     '''
+    #print "int: %s: " % str(ord(alphabet))
     return _Character(Intervals(intervals, alphabet))
     
 

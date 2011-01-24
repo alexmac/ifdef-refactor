@@ -96,8 +96,8 @@ def serializeifdefs(xs, dst, opts):
                             d.comment = ""
                             if b.startpos - prevbranch.startpos > threshold:
                                 e = printifdefexpr(prevbranch.cond).strip()
-                                if prevbranch.cond.token == "ifndef":
-                                    e = "!(%s)" % e
+                                if prevbranch.cond.token in ["ifndef", "ifdef"]:
+                                    e = "%s %s" % (prevbranch.cond.token, e)
                                 d.comment = "// " + e
         
                     dst.write(printifdef(d) + "\n")
@@ -109,9 +109,9 @@ def serializeifdefs(xs, dst, opts):
                     if x.children[-1].endpos - x.children[-1].startpos > threshold:
                         c = x.children[-2].cond if x.children[-1].cond is None else x.children[-1].cond
                         e = printifdefexpr(c).strip()
-                        if c.token == "ifndef":
-                            e = "!(%s)" % e
-                            d.comment = "// " + e
+                        if c.token in ["ifndef", "ifdef"]:
+                            e = "%s %s" % (c.token, e)
+                        d.comment = "// " + e
                     dst.write(printifdef(d) + "\n")
                 else:
                     dst.write(x.children[-1].endline)
@@ -128,16 +128,21 @@ def serializeifdefs(xs, dst, opts):
 
 def tidyifdefs(file, opts):
     print "Tidying ifdefs in %s" % file
-    root = parsefile(file)
-
     dst = tempfile.NamedTemporaryFile()
+    
+    try:
+        root = parsefile(file)
+        serializeifdefs(root.children, dst, opts)
 
-    serializeifdefs(root.children, dst, opts)
-
-    # close the output file, then replace the
-    # source with the cleaned file
-    dst.flush()
-    shutil.copyfile(dst.name, file)
+        # close the output file, then replace the
+        # source with the cleaned file
+        dst.flush()
+        shutil.copyfile(dst.name, file)
+    except KeyboardInterrupt:
+        exit(0)
+    except:
+        print " -- Failed to parse %s: %s" % (file, sys.exc_info()[0])
+        print sys.exc_info()
     dst.close()
 
 # ------------------------------------------------------------------------------
@@ -148,15 +153,20 @@ if __name__ == "__main__":
     optParser.set_defaults()
     optParser.add_option( '-e', '--always-enabled', dest="enabled", default = [], action="append")
     optParser.add_option( '-d', '--always-disabled', dest="disabled", default = [], action="append")
-    optParser.add_option( '-u', '--update-comments', dest="updatecomments", default = False, action="store_false")     
+    optParser.add_option( '-i', '--ignore-file', dest="ignored", default = [], action="append")
+    optParser.add_option( '-u', '--dont-update-comments', dest="updatecomments", default = True, action="store_false")    
     (opts, args) = optParser.parse_args()
 
     if len(args) == 0:
         for (path, dirs, files) in os.walk("."):
             for file in files:
+                if file in opts.ignored:
+                    continue
                 if any(file.endswith(x) for x in [".c", ".cpp", ".h", ".mm"]):
                     fullpath = "%s/%s" % (path, file)
                     tidyifdefs(fullpath, opts)
     else:
         for fullpath in args:
+            if file in opts.ignored:
+                continue
             tidyifdefs(fullpath, opts)
