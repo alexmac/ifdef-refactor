@@ -91,9 +91,9 @@ parser = expr.get_parse()
 
 def printexpr(r, addBrackets=False):
     if isinstance(r, OrExpr):
-        r = printexpr(r.args[0], isinstance(r.args[0], AndExpr)) + " || " + printexpr(r.args[1], isinstance(r.args[1], AndExpr))
+        r = printexpr(r.args[0], not isinstance(r.args[0], OrExpr)) + " || " + printexpr(r.args[1], not isinstance(r.args[1], OrExpr))
     elif isinstance(r, AndExpr):
-        r = printexpr(r.args[0], isinstance(r.args[0], OrExpr)) + " && " + printexpr(r.args[1], isinstance(r.args[1], OrExpr))
+        r = printexpr(r.args[0], not isinstance(r.args[0], AndExpr)) + " && " + printexpr(r.args[1], not isinstance(r.args[1], AndExpr))
     elif isinstance(r, GtEqExpr):
         r = printexpr(r.args[0]) + " >= " + printexpr(r.args[1])
     elif isinstance(r, LtEqExpr):
